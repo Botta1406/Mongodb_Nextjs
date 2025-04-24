@@ -1,103 +1,216 @@
-import Image from "next/image";
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Modal, Button } from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { toast, Toaster } from 'react-hot-toast';
+
+type Task = {
+    _id: string;
+    task: string;
+    completed: boolean;
+};
+
+export default function HomePage() {
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [newTask, setNewTask] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editedText, setEditedText] = useState('');
+    const [showModal, setShowModal] = useState(false);
+
+    useEffect(() => {
+        fetch('/api/tasks')
+            .then(res => res.json())
+            .then(setTasks)
+            .catch(error => {
+                console.error(error);
+                toast.error('Failed to load tasks.');
+            });
+    }, []);
+
+    const addTask = async () => {
+        if (!newTask.trim()) {
+            // Display error message if task is empty
+            toast.error('Please enter a task.');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/tasks', {
+                method: 'POST',
+                body: JSON.stringify({ task: newTask }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setTasks(prev => [...prev, data]);
+                setNewTask('');
+                toast.success('Task added successfully!');
+            } else {
+                toast.error('Failed to add task.');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to add task.');
+        }
+    };
+
+    const deleteTask = async (id: string) => {
+        const originalTasks = [...tasks];
+        setTasks(prev => prev.filter(t => t._id !== id));
+
+        try {
+            const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                toast.success('Task deleted successfully!');
+            } else {
+                setTasks(originalTasks); // Rollback on failure
+                toast.error('Failed to delete task.');
+            }
+        } catch (error) {
+            console.error(error);
+            setTasks(originalTasks); // Rollback on error
+            toast.error('Failed to delete task.');
+        }
+    };
+
+    const toggleComplete = async (task: Task) => {
+        try {
+            const res = await fetch(`/api/tasks/${task._id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ completed: !task.completed }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+                setTasks(prev =>
+                    prev.map(t => (t._id === task._id ? { ...t, completed: !t.completed } : t))
+                );
+                toast.success(`Task ${task.completed ? 'unmarked' : 'marked'} as complete.`);
+            } else {
+                toast.error('Failed to update task status.');
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update task status.');
+        }
+    };
+
+    const handleEditClick = (task: Task) => {
+        setEditingId(task._id);
+        setEditedText(task.task);
+        setShowModal(true);
+    };
+
+    const saveEdit = async () => {
+        if (!editingId) return;
+        try {
+            const res = await fetch(`/api/tasks/${editingId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ task: editedText }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+                setTasks(prev =>
+                    prev.map(t => (t._id === editingId ? { ...t, task: editedText } : t))
+                );
+                setEditingId(null);
+                setShowModal(false);
+                toast.success('Task updated successfully!');
+            } else {
+                const errorData = await res.json();
+                toast.error(`Failed to update task: ${errorData?.message || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update task.');
+        }
+    };
+
+    return (
+        <main className="bg-light min-vh-100 py-5">
+            <div className="container">
+                <div className="mx-auto p-4 bg-white shadow rounded" style={{ maxWidth: '600px' }}>
+                    <h1 className="text-center mb-4">My Todo List</h1>
+
+                    <div className="input-group mb-4">
+                        <input
+                            value={newTask}
+                            onChange={e => setNewTask(e.target.value)}
+                            placeholder="Add a new task..."
+                            className="form-control"
+                        />
+                        <button onClick={addTask} className="btn btn-primary">
+                            Add
+                        </button>
+                    </div>
+
+                    <ul className="list-group">
+                        {tasks.map(task => (
+                            <li key={task._id} className="list-group-item d-flex justify-content-between align-items-center">
+                                <div className="flex-grow-1 me-3">
+                                    <span className={task.completed ? 'text-decoration-line-through text-muted' : ''}>
+                                        {task.task}
+                                    </span>
+                                </div>
+                                <div className="form-check form-switch ms-2">
+                                    <input
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        checked={task.completed}
+                                        onChange={() => toggleComplete(task)}
+                                        title="Toggle Complete"
+                                    />
+                                </div>
+                                <div className="btn-group align-items-center" role="group">
+                                    <button
+                                        onClick={() => handleEditClick(task)}
+                                        className="btn btn-sm btn-warning"
+                                    >
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        onClick={() => deleteTask(task._id)}
+                                        className="btn btn-sm btn-danger ms-2"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+
+            <Toaster position="bottom-right" reverseOrder={false} />
+
+            {/* Modal for Editing */}
+            <Modal show={showModal} onHide={() => setShowModal(false)} centered >
+                <Modal.Header closeButton>
+                    <Modal.Title>Edit Task</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <input
+                        value={editedText}
+                        onChange={e => setEditedText(e.target.value)}
+                        className="form-control"
+                        placeholder="Edit task..."
+                    />
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowModal(false)}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={saveEdit}>
+                        Save
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+        </main>
+    );
 }
+
+
