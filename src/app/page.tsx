@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -473,8 +472,8 @@ export default function HomePage() {
     const visibleTasks = tasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
-        <main className="bg-light min-vh-100">
-            <div className="mx-auto p-4 bg-blue-200 shadow rounded">
+        <main className="min-vh-100" style={{ backgroundColor: "#c5dbf5" }}>
+            <div className="mx-auto p-4" /* Removed bg-blue-200 shadow rounded */>
                 <h1 className="text-center mt-3">My Todo List</h1>
 
                 <div className="d-flex justify-content-end mb-4">
@@ -493,14 +492,14 @@ export default function HomePage() {
                         modules={[ClientSideRowModelModule]}
                         paginationPageSize={pageSize}
                     />
-                </div>
 
-                {/* Custom pagination controls */}
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div>
-                        Showing {Math.min(tasks.length, (currentPage - 1) * pageSize + 1)} to {Math.min(tasks.length, currentPage * pageSize)} of {tasks.length} entries
+                    {/* Pagination moved inside the table div */}
+                    <div className="d-flex justify-content-between align-items-center mt-3 p-2 border-top">
+                        <div>
+                            Showing {Math.min(tasks.length, (currentPage - 1) * pageSize + 1)} to {Math.min(tasks.length, currentPage * pageSize)} of {tasks.length} entries
+                        </div>
+                        <Pagination>{renderPaginationItems()}</Pagination>
                     </div>
-                    <Pagination>{renderPaginationItems()}</Pagination>
                 </div>
             </div>
 
