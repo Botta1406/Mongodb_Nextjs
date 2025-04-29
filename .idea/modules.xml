@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/nextjs_mongodb.iml" filepath="$PROJECT_DIR$/.idea/nextjs_mongodb.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/nextjs_mongodb_Todo.iml" filepath="$PROJECT_DIR$/.idea/nextjs_mongodb_Todo.iml" />
     </modules>
   </component>
 </project>
