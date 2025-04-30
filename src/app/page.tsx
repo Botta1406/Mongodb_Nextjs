@@ -1,5 +1,4 @@
 
-// 4. Finally, update the HomePage component to remove localStorage usage
 
 'use client';
 
@@ -9,7 +8,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { ClientSideRowModelModule } from 'ag-grid-community';
 import { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { Modal, Button, Form, Pagination } from 'react-bootstrap';
+import { Modal, Button, Form, Pagination, Dropdown } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Updated Task interface to include name and email directly
@@ -28,8 +27,13 @@ interface FormDataType {
     completed: boolean;
 }
 
+// Define status filter type for type safety
+type StatusFilter = 'all' | 'completed' | 'incomplete';
+
 export default function HomePage() {
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [formData, setFormData] = useState<FormDataType>({
         name: '',
         email: '',
@@ -63,27 +67,29 @@ export default function HomePage() {
             field: 'name',
             headerName: 'Name',
             flex: 1,
-            sortable: true,
-            filter: true,
+            cellStyle: { padding: '12px 16px' },
+            headerClass: 'custom-header'
         },
         {
             field: 'email',
             headerName: 'Email',
             flex: 1.5,
-            sortable: true,
-            filter: true,
+            cellStyle: { padding: '12px 16px' },
+            headerClass: 'custom-header'
         },
         {
             field: 'task',
             headerName: 'Task Description',
-            flex: 2,
-            sortable: true,
-            filter: true
+            flex: 1,
+            cellStyle: { padding: '12px 16px' },
+            headerClass: 'custom-header'
         },
         {
             field: 'completed',
             headerName: 'Status',
             flex: 1,
+            cellStyle: { padding: '12px 16px' },
+            headerClass: 'custom-header',
             cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div className="d-flex align-items-center">
@@ -94,30 +100,35 @@ export default function HomePage() {
                                 checked={params.data.completed}
                                 onChange={() => toggleComplete(params.data)}
                                 title="Toggle Status"
+                                style={{ cursor: 'pointer' }}
                             />
                         </div>
-                        <span className="ms-2">{params.value ? 'Completed' : 'Pending'}</span>
+                        <span className={`ms-2 badge ${params.value ? 'bg-success' : 'bg-warning'}`} style={{ fontSize: '0.85rem' }}>
+                            {params.value ? 'Completed' : 'Pending'}
+                        </span>
                     </div>
                 );
             },
-            sortable: true,
-            filter: true
         },
         {
             headerName: 'Actions',
             flex: 1,
+            cellStyle: { padding: '8px 16px' },
+            headerClass: 'custom-header',
             cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div className="d-flex gap-2">
                         <button
                             onClick={() => handleEditClick(params.data)}
                             className="btn btn-sm btn-warning"
+                            style={{ minWidth: '70px' }}
                         >
                             Edit
                         </button>
                         <button
                             onClick={() => confirmDelete(params.data._id)}
                             className="btn btn-sm btn-danger"
+                            style={{ minWidth: '70px' }}
                         >
                             Delete
                         </button>
@@ -129,6 +140,8 @@ export default function HomePage() {
 
     // Default AG Grid options
     const defaultColDef = {
+        sortable: true,
+        filter: true,
         resizable: true,
         suppressSizeToFit: false
     };
@@ -137,10 +150,44 @@ export default function HomePage() {
         fetchTasks();
     }, []);
 
-    // Calculate total pages whenever tasks change
+    // Apply status filter whenever tasks or statusFilter changes
     useEffect(() => {
-        setTotalPages(Math.ceil(tasks.length / pageSize));
-    }, [tasks]);
+        applyStatusFilter();
+    }, [tasks, statusFilter]);
+
+    // Calculate total pages whenever filtered tasks change
+    useEffect(() => {
+        setTotalPages(Math.ceil(filteredTasks.length / pageSize));
+        // Reset to first page when filter changes
+        if (currentPage !== 1 && filteredTasks.length <= (currentPage - 1) * pageSize) {
+            setCurrentPage(1);
+        }
+    }, [filteredTasks]);
+
+    // Function to apply status filter
+    const applyStatusFilter = () => {
+        let filtered: Task[];
+
+        switch (statusFilter) {
+            case 'completed':
+                filtered = tasks.filter(task => task.completed);
+                break;
+            case 'incomplete':
+                filtered = tasks.filter(task => !task.completed);
+                break;
+            default:
+                filtered = [...tasks];
+                break;
+        }
+
+        setFilteredTasks(filtered);
+    };
+
+    // Handle status filter change
+    const handleStatusFilterChange = (status: StatusFilter) => {
+        setStatusFilter(status);
+        setCurrentPage(1); // Reset to first page when filter changes
+    };
 
     // Load tasks from API with direct name and email fields
     const fetchTasks = async () => {
@@ -153,7 +200,7 @@ export default function HomePage() {
 
             const data = await res.json();
             setTasks(data);
-            setTotalPages(Math.ceil(data.length / pageSize));
+            setFilteredTasks(data); // Initialize filtered tasks with all tasks
         } catch (error) {
             console.error('Error fetching tasks:', error);
             toast.error('Failed to load tasks.');
@@ -324,7 +371,7 @@ export default function HomePage() {
             toast.success('Task deleted successfully!');
 
             // Update pagination if needed after deletion
-            if (currentPage > Math.ceil((tasks.length - 1) / pageSize) && currentPage > 1) {
+            if (currentPage > Math.ceil((filteredTasks.length - 1) / pageSize) && currentPage > 1) {
                 setCurrentPage(currentPage - 1);
             }
         } catch (error) {
@@ -417,21 +464,55 @@ export default function HomePage() {
     };
 
     // Calculate visible tasks based on current page and page size
-    const visibleTasks = tasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const visibleTasks = filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
         <main className="min-vh-100" style={{ backgroundColor: "#c5dbf5" }}>
             <div className="mx-auto p-4" data-testid="todo-container">
-                <h1 className="text-center mt-3">My Todo List</h1>
+                <h1 className="text-center mt-5 mb-4" style={{ fontSize: "2.5rem", fontWeight: "bold" }}>My Todo List</h1>
 
-                <div className="d-flex justify-content-end mb-4">
-                    <button onClick={openAddTaskModal} className="btn btn-primary">
+                <div className="d-flex justify-content-center mb-5 gap-5">
+                    <button
+                        onClick={openAddTaskModal}
+                        className="btn btn-primary py-2 px-4"
+                        style={{ fontSize: "1rem", fontWeight: "500" }}
+                    >
                         + Add New Task
                     </button>
+
+                    <div className="d-flex align-items-center">
+                        <span className="me-2 fw-bold">Filter by Status:</span>
+                        <Dropdown>
+                            <Dropdown.Toggle variant="light" id="dropdown-status-filter" className="py-2 px-3">
+                                {statusFilter === 'all' ? 'All Tasks' :
+                                    statusFilter === 'completed' ? 'Completed Tasks' : 'Incomplete Tasks'}
+                            </Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item
+                                    active={statusFilter === 'all'}
+                                    onClick={() => handleStatusFilterChange('all')}
+                                >
+                                    All Tasks
+                                </Dropdown.Item>
+                                <Dropdown.Item
+                                    active={statusFilter === 'completed'}
+                                    onClick={() => handleStatusFilterChange('completed')}
+                                >
+                                    Completed Tasks
+                                </Dropdown.Item>
+                                <Dropdown.Item
+                                    active={statusFilter === 'incomplete'}
+                                    onClick={() => handleStatusFilterChange('incomplete')}
+                                >
+                                    Incomplete Tasks
+                                </Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </div>
                 </div>
 
-                {tasks.length > 0 ? (
-                    <div className="ag-theme-alpine" style={{ height: '50%', width: '100%' }}>
+                {filteredTasks.length > 0 ? (
+                    <div className="ag-theme-alpine mx-auto mb-5 shadow-sm rounded" style={{ height: '50%', width: '85%' }}>
                         <AgGridReact
                             rowData={visibleTasks}
                             columnDefs={columnDefs}
@@ -440,21 +521,27 @@ export default function HomePage() {
                             domLayout="autoHeight"
                             modules={[ClientSideRowModelModule]}
                             paginationPageSize={pageSize}
+                            rowHeight={48}
+                            headerHeight={56}
                         />
 
                         {/* Pagination moved inside the table div */}
-                        {/*<div className="d-flex justify-content-between align-items-center mt-3 p-2 border-top">*/}
+                        <div className="d-flex justify-content-between align-items-center mt-4 p-3 ">
                             <div>
-                                Showing {Math.min(tasks.length, (currentPage - 1) * pageSize + 1)} to {Math.min(tasks.length, currentPage * pageSize)} of {tasks.length} entries
+                                Showing {filteredTasks.length > 0 ? Math.min(filteredTasks.length, (currentPage - 1) * pageSize + 1) : 0} to {Math.min(filteredTasks.length, currentPage * pageSize)} of {filteredTasks.length} entries
                             </div>
                             <Pagination>{renderPaginationItems()}</Pagination>
-                        {/*</div>*/}
+                        </div>
                     </div>
                 ) : (
-                    <div className="text-center p-5 bg-white rounded shadow-sm">
-                        <h3>No Tasks Found</h3>
-                        <p className="text-muted">Get started by adding your first task!</p>
-                        <button onClick={openAddTaskModal} className="btn btn-primary mt-3">
+                    <div className="text-center p-5 bg-white rounded shadow-sm mx-auto mb-5" style={{ width: '85%' }}>
+                        <h3 className="mb-3">No Tasks Found</h3>
+                        <p className="text-muted mb-4">
+                            {statusFilter !== 'all'
+                                ? `No ${statusFilter} tasks available. Try changing the filter or add a new task.`
+                                : 'Get started by adding your first task!'}
+                        </p>
+                        <button onClick={openAddTaskModal} className="btn btn-primary mt-3 py-2 px-4">
                             Add Task
                         </button>
                     </div>
@@ -464,51 +551,56 @@ export default function HomePage() {
             <Toaster position="bottom-right" reverseOrder={false} />
 
             {/* Task Form Modal */}
-            <Modal show={showTaskModal} onHide={handleModalClose} centered>
-                <Modal.Header closeButton>
+            <Modal show={showTaskModal} onHide={handleModalClose} centered size="lg">
+                <Modal.Header closeButton className="bg-light">
                     <Modal.Title>{editingId ? 'Edit Task' : 'Add New Task'}</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="p-4">
                     <Form>
-                        <Form.Group className="mb-3">
-                            <Form.Label>Name</Form.Label>
+                        <Form.Group className="mb-4">
+                            <Form.Label className="fw-bold">Name</Form.Label>
                             <Form.Control
                                 type="text"
                                 name="name"
                                 value={formData.name}
                                 onChange={handleInputChange}
                                 placeholder="Enter name"
+                                className="p-2"
                             />
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
-                            <Form.Label>Email</Form.Label>
+                        <Form.Group className="mb-4">
+                            <Form.Label className="fw-bold">Email</Form.Label>
                             <Form.Control
                                 type="email"
                                 name="email"
                                 value={formData.email}
                                 onChange={handleInputChange}
                                 placeholder="Enter email"
+                                className="p-2"
                             />
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
-                            <Form.Label>Task Description</Form.Label>
+                        <Form.Group className="mb-4">
+                            <Form.Label className="fw-bold">Task Description</Form.Label>
                             <Form.Control
                                 type="text"
                                 name="task"
                                 value={formData.task}
                                 onChange={handleInputChange}
                                 placeholder="Enter task description"
+                                className="p-2"
+                                as="textarea"
+                                rows={3}
                             />
                         </Form.Group>
                     </Form>
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={handleModalClose}>
+                <Modal.Footer className="p-3">
+                    <Button variant="secondary" onClick={handleModalClose} className="px-4">
                         Cancel
                     </Button>
-                    <Button variant="primary" onClick={saveTask}>
+                    <Button variant="primary" onClick={saveTask} className="px-4">
                         {editingId ? 'Update' : 'Add'} Task
                     </Button>
                 </Modal.Footer>
