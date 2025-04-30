@@ -511,7 +511,7 @@ export default function HomePage() {
                 </div>
 
                 {filteredTasks.length > 0 ? (
-                    <div className="ag-theme-alpine mx-auto mb-5 shadow-sm rounded" style={{ height: '50%', width: '85%' }}>
+                    <div className="ag-theme-alpine mx-auto mb-5 shadow-sm rounded" style={{ height: '50%', width: '80%' }}>
                         <AgGridReact
                             rowData={visibleTasks}
                             columnDefs={columnDefs}
