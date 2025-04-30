@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -67,29 +65,29 @@ export default function HomePage() {
             field: 'name',
             headerName: 'Name',
             flex: 1,
-            cellStyle: { padding: '12px 16px' },
-            headerClass: 'custom-header'
+            // cellStyle: { padding: '12px 16px' },
+            // headerClass: 'custom-header'
         },
         {
             field: 'email',
             headerName: 'Email',
             flex: 1.5,
-            cellStyle: { padding: '12px 16px' },
-            headerClass: 'custom-header'
+            // cellStyle: { padding: '12px 16px' },
+            // headerClass: 'custom-header'
         },
         {
             field: 'task',
             headerName: 'Task Description',
             flex: 1,
-            cellStyle: { padding: '12px 16px' },
-            headerClass: 'custom-header'
+            // cellStyle: { padding: '12px 16px' },
+            // headerClass: 'custom-header'
         },
         {
             field: 'completed',
             headerName: 'Status',
             flex: 1,
-            cellStyle: { padding: '12px 16px' },
-            headerClass: 'custom-header',
+            // cellStyle: { padding: '12px 16px' },
+            // headerClass: 'custom-header',
             cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div className="d-flex align-items-center">
@@ -113,8 +111,8 @@ export default function HomePage() {
         {
             headerName: 'Actions',
             flex: 1,
-            cellStyle: { padding: '8px 16px' },
-            headerClass: 'custom-header',
+            // cellStyle: { padding: '8px 16px' },
+            // headerClass: 'custom-header',
             cellRenderer: (params: ICellRendererParams) => {
                 return (
                     <div className="d-flex gap-2">
@@ -142,7 +140,7 @@ export default function HomePage() {
     const defaultColDef = {
         sortable: true,
         filter: true,
-        resizable: true,
+        resizable: false,
         suppressSizeToFit: false
     };
 
@@ -654,3 +652,4 @@ export default function HomePage() {
         </main>
     );
 }
+
