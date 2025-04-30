@@ -1,4 +1,6 @@
 
+// 4. Finally, update the HomePage component to remove localStorage usage
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,14 +12,13 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { Modal, Button, Form, Pagination } from 'react-bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
-// Define interfaces for TypeScript
+// Updated Task interface to include name and email directly
 interface Task {
     _id: string;
     task: string;
+    name: string;
+    email: string;
     completed: boolean;
-    // UI-only fields
-    _uiName: string;
-    _uiEmail: string;
 }
 
 interface FormDataType {
@@ -25,15 +26,6 @@ interface FormDataType {
     email: string;
     task: string;
     completed: boolean;
-}
-
-interface ExtendedData {
-    name: string;
-    email: string;
-}
-
-interface ExtendedDataMap {
-    [key: string]: ExtendedData;
 }
 
 export default function HomePage() {
@@ -65,27 +57,21 @@ export default function HomePage() {
     ];
     const [isOtherReason, setIsOtherReason] = useState<boolean>(false);
 
-    // AG Grid column definitions
+    // AG Grid column definitions - Updated to use direct name and email fields
     const columnDefs: ColDef[] = [
         {
-            field: '_uiName',
+            field: 'name',
             headerName: 'Name',
             flex: 1,
             sortable: true,
             filter: true,
-            valueGetter: (params: ValueGetterParams) => {
-                return params.data?._uiName || '';
-            }
         },
         {
-            field: '_uiEmail',
+            field: 'email',
             headerName: 'Email',
             flex: 1.5,
             sortable: true,
             filter: true,
-            valueGetter: (params: ValueGetterParams) => {
-                return params.data?._uiEmail || '';
-            }
         },
         {
             field: 'task',
@@ -147,7 +133,6 @@ export default function HomePage() {
         suppressSizeToFit: false
     };
 
-    // Use Next.js 15's improved data fetching pattern
     useEffect(() => {
         fetchTasks();
     }, []);
@@ -157,7 +142,7 @@ export default function HomePage() {
         setTotalPages(Math.ceil(tasks.length / pageSize));
     }, [tasks]);
 
-    // Load tasks from API using modern fetch with proper error handling
+    // Load tasks from API with direct name and email fields
     const fetchTasks = async () => {
         try {
             const res = await fetch('/api/tasks');
@@ -167,23 +152,8 @@ export default function HomePage() {
             }
 
             const data = await res.json();
-
-            // Get stored local data
-            const localTaskData = localStorage.getItem('taskExtendedData');
-            const extendedData: ExtendedDataMap = localTaskData ? JSON.parse(localTaskData) : {};
-
-            // Merge API data with local storage data
-            const enhancedTasks = data.map((task: Task) => {
-                const localData = extendedData[task._id] || {};
-                return {
-                    ...task,
-                    _uiName: localData.name || '',
-                    _uiEmail: localData.email || ''
-                };
-            });
-
-            setTasks(enhancedTasks);
-            setTotalPages(Math.ceil(enhancedTasks.length / pageSize));
+            setTasks(data);
+            setTotalPages(Math.ceil(data.length / pageSize));
         } catch (error) {
             console.error('Error fetching tasks:', error);
             toast.error('Failed to load tasks.');
@@ -256,27 +226,17 @@ export default function HomePage() {
         return true;
     };
 
-    // Save extended data to local storage
-    const saveExtendedDataToLocalStorage = (taskId: string, name: string, email: string) => {
-        // Get current extended data
-        const existingData = localStorage.getItem('taskExtendedData');
-        const extendedData: ExtendedDataMap = existingData ? JSON.parse(existingData) : {};
-
-        // Update with new data
-        extendedData[taskId] = { name, email };
-
-        // Save back to localStorage
-        localStorage.setItem('taskExtendedData', JSON.stringify(extendedData));
-    };
-
     const saveTask = async () => {
         if (!validateForm()) return;
 
         try {
-            // For API compatibility, only send the task field and completed status
-            const apiData = editingId
-                ? { task: formData.task, completed: formData.completed }
-                : { task: formData.task };
+            // Send name and email directly to the API
+            const apiData = {
+                task: formData.task,
+                name: formData.name,
+                email: formData.email,
+                ...(editingId && { completed: formData.completed })
+            };
 
             if (editingId) {
                 // Update existing task
@@ -291,19 +251,16 @@ export default function HomePage() {
                     throw new Error(errorData?.message || 'Failed to update task');
                 }
 
-                // Store all form data in local state for UI
                 const updatedTask = await res.json();
-
-                // Save extended data to localStorage
-                saveExtendedDataToLocalStorage(editingId, formData.name, formData.email);
 
                 setTasks(prev =>
                     prev.map(t => (t._id === editingId ? {
-                        ...t,                   // Preserve existing properties
-                        ...updatedTask,         // Add updated properties from API
-                        task: formData.task,    // Explicitly set task from form data
-                        _uiName: formData.name, // Preserve UI-only fields
-                        _uiEmail: formData.email
+                        ...t,
+                        ...updatedTask,
+                        task: formData.task,
+                        name: formData.name,
+                        email: formData.email,
+                        completed: formData.completed
                     } : t))
                 );
                 toast.success('Task updated successfully!');
@@ -320,18 +277,8 @@ export default function HomePage() {
                     throw new Error('Failed to add task');
                 }
 
-                const data = await res.json();
-
-                // Save extended data to localStorage
-                saveExtendedDataToLocalStorage(data._id, formData.name, formData.email);
-
-                // Add UI-only fields to the task for our grid
-                const enhancedTask = {
-                    ...data,
-                    _uiName: formData.name,
-                    _uiEmail: formData.email
-                };
-                setTasks(prev => [...prev, enhancedTask]);
+                const newTask = await res.json();
+                setTasks(prev => [...prev, newTask]);
                 toast.success('Task added successfully!');
                 handleModalClose();
             }
@@ -372,14 +319,6 @@ export default function HomePage() {
             const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
             if (!res.ok) {
                 throw new Error('Failed to delete task');
-            }
-
-            // Also remove from localStorage
-            const existingData = localStorage.getItem('taskExtendedData');
-            if (existingData) {
-                const extendedData: ExtendedDataMap = JSON.parse(existingData);
-                delete extendedData[id];
-                localStorage.setItem('taskExtendedData', JSON.stringify(extendedData));
             }
 
             toast.success('Task deleted successfully!');
@@ -427,8 +366,8 @@ export default function HomePage() {
 
     const handleEditClick = (task: Task) => {
         setFormData({
-            name: task._uiName || '',
-            email: task._uiEmail || '',
+            name: task.name,
+            email: task.email,
             task: task.task,
             completed: task.completed
         });
@@ -491,25 +430,35 @@ export default function HomePage() {
                     </button>
                 </div>
 
-                <div className="ag-theme-alpine" style={{ height: 'auto', width: '100%' }}>
-                    <AgGridReact
-                        rowData={visibleTasks}
-                        columnDefs={columnDefs}
-                        defaultColDef={defaultColDef}
-                        animateRows={true}
-                        domLayout="autoHeight"
-                        modules={[ClientSideRowModelModule]}
-                        paginationPageSize={pageSize}
-                    />
+                {tasks.length > 0 ? (
+                    <div className="ag-theme-alpine" style={{ height: '50%', width: '100%' }}>
+                        <AgGridReact
+                            rowData={visibleTasks}
+                            columnDefs={columnDefs}
+                            defaultColDef={defaultColDef}
+                            animateRows={true}
+                            domLayout="autoHeight"
+                            modules={[ClientSideRowModelModule]}
+                            paginationPageSize={pageSize}
+                        />
 
-                    {/* Pagination moved inside the table div */}
-                    <div className="d-flex justify-content-between align-items-center mt-3 p-2 border-top">
-                        <div>
-                            Showing {tasks.length === 0 ? 0 : Math.min(tasks.length, (currentPage - 1) * pageSize + 1)} to {Math.min(tasks.length, currentPage * pageSize)} of {tasks.length} entries
-                        </div>
-                        <Pagination>{renderPaginationItems()}</Pagination>
+                        {/* Pagination moved inside the table div */}
+                        {/*<div className="d-flex justify-content-between align-items-center mt-3 p-2 border-top">*/}
+                            <div>
+                                Showing {Math.min(tasks.length, (currentPage - 1) * pageSize + 1)} to {Math.min(tasks.length, currentPage * pageSize)} of {tasks.length} entries
+                            </div>
+                            <Pagination>{renderPaginationItems()}</Pagination>
+                        {/*</div>*/}
                     </div>
-                </div>
+                ) : (
+                    <div className="text-center p-5 bg-white rounded shadow-sm">
+                        <h3>No Tasks Found</h3>
+                        <p className="text-muted">Get started by adding your first task!</p>
+                        <button onClick={openAddTaskModal} className="btn btn-primary mt-3">
+                            Add Task
+                        </button>
+                    </div>
+                )}
             </div>
 
             <Toaster position="bottom-right" reverseOrder={false} />
